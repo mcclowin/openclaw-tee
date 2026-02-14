@@ -1,6 +1,6 @@
 ARG OPENCLAW_VERSION=v2026.2.13
 
-# --- Stage 1: Build OpenClaw from source (using their own Dockerfile pattern) ---
+# --- Stage 1: Build OpenClaw from source ---
 FROM node:22-bookworm AS builder
 
 RUN curl -fsSL https://bun.sh/install | bash
@@ -25,7 +25,7 @@ COPY --from=builder /app /app
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-RUN mkdir -p /home/node/.openclaw && chown -R node:node /home/node/.openclaw
+RUN mkdir -p /home/node/.openclaw && chown -R node:node /home/node
 
 WORKDIR /app
 EXPOSE 3000

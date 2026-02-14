@@ -2,11 +2,14 @@
 set -e
 
 # === OpenClaw TEE Entrypoint ===
-# One file. Generates config, fixes permissions, seeds workspace, starts gateway.
+# Generates config from env vars, then starts OpenClaw gateway.
 
-CONFIG_DIR="/home/node/.openclaw"
+HOME_DIR="/home/node"
+CONFIG_DIR="$HOME_DIR/.openclaw"
 AGENT_DIR="$CONFIG_DIR/agents/main/agent"
 WORKSPACE="$CONFIG_DIR/workspace"
+
+echo "=== OpenClaw TEE Entrypoint ==="
 
 # --- Create all dirs OpenClaw expects ---
 mkdir -p "$AGENT_DIR" "$WORKSPACE" \
@@ -14,12 +17,8 @@ mkdir -p "$AGENT_DIR" "$WORKSPACE" \
   "$CONFIG_DIR/telegram" \
   "$CONFIG_DIR/canvas" \
   "$CONFIG_DIR/cron" \
-  "$CONFIG_DIR/sandboxes"
-
-# --- Fix ownership (if running as root, drop to node after) ---
-if [ "$(id -u)" = "0" ]; then
-  chown -R node:node "$CONFIG_DIR"
-fi
+  "$CONFIG_DIR/sandboxes" \
+  "$CONFIG_DIR/credentials"
 
 # --- Validate required env vars ---
 missing=""
@@ -36,7 +35,7 @@ fi
 GATEWAY_TOKEN="${GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | od -A n -t x1 | tr -d ' \n')}"
 
 # --- Generate openclaw.json ---
-cat > "$CONFIG_DIR/openclaw.json" << EOF
+cat > "$CONFIG_DIR/openclaw.json" << JSONEOF
 {
   "gateway": {
     "port": 3000,
@@ -71,10 +70,10 @@ cat > "$CONFIG_DIR/openclaw.json" << EOF
     }
   }
 }
-EOF
+JSONEOF
 
 # --- Generate auth-profiles.json ---
-cat > "$AGENT_DIR/auth-profiles.json" << EOF
+cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
 {
   "version": 1,
   "profiles": {
@@ -85,31 +84,23 @@ cat > "$AGENT_DIR/auth-profiles.json" << EOF
     }
   }
 }
-EOF
+JSONEOF
 
-# --- Fix ownership again after writing configs ---
-if [ "$(id -u)" = "0" ]; then
-  chown -R node:node "$CONFIG_DIR"
-fi
-
-# --- Seed workspace files (only if not already present) ---
+# --- Seed workspace files ---
 if [ -n "$SOUL_MD" ]; then
   echo "$SOUL_MD" > "$WORKSPACE/SOUL.md"
-  echo "Injected SOUL.md from env"
-elif [ -f /opt/config/SOUL.md ] && [ ! -f "$WORKSPACE/SOUL.md" ]; then
-  cp /opt/config/SOUL.md "$WORKSPACE/SOUL.md"
-  echo "Injected SOUL.md from mount"
+  echo "Seeded SOUL.md from env"
 fi
 
-echo "=== OpenClaw TEE Deploy ==="
+# --- Fix ownership ---
+chown -R node:node "$CONFIG_DIR"
+
 echo "Gateway token: $GATEWAY_TOKEN"
-echo "Model: ${PRIMARY_MODEL:-anthropic:claude-sonnet-4-20250514}"
+echo "Model: ${PRIMARY_MODEL:-claude-sonnet-4-20250514}"
 echo "Telegram owner: $TELEGRAM_OWNER_ID"
-echo "==========================="
+echo "Config written to: $CONFIG_DIR/openclaw.json"
+echo "=== Starting OpenClaw Gateway ==="
 
-# --- Start OpenClaw (drop to node user if root) ---
-if [ "$(id -u)" = "0" ]; then
-  exec gosu node node openclaw.mjs gateway
-else
-  exec node openclaw.mjs gateway
-fi
+# --- Start as node user ---
+cd /app
+exec gosu node node openclaw.mjs gateway
