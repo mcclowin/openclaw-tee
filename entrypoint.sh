@@ -53,7 +53,7 @@ cat > "$CONFIG_DIR/openclaw.json" << EOF
   "agents": {
     "defaults": {
       "model": {
-        "primary": "${PRIMARY_MODEL:-claude-sonnet-4-20250514}"
+        "primary": "${PRIMARY_MODEL:-anthropic/claude-sonnet-4-20250514}"
       },
       "workspace": "$WORKSPACE"
     }
