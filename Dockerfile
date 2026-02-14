@@ -22,6 +22,8 @@ FROM node:22-bookworm-slim
 RUN apt-get update && apt-get install -y gosu openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app /app
+# Verify build output exists
+RUN ls -la /app/openclaw.mjs /app/dist/ && echo "Build artifacts present"
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
