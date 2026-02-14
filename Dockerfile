@@ -1,34 +1,33 @@
 # Brain&Bot OpenClaw TEE Image
 # Builds official OpenClaw from source + our entrypoint
-FROM node:22-bookworm
+FROM node:22-bookworm AS builder
 
 # Install Bun (required for OpenClaw build)
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 RUN corepack enable
 
-WORKDIR /app
+WORKDIR /build
 
 # Clone OpenClaw source
-RUN git clone --depth 1 https://github.com/openclaw/openclaw.git /tmp/openclaw-src
+RUN git clone --depth 1 https://github.com/openclaw/openclaw.git .
 
-# Copy source to working dir
-RUN cp -r /tmp/openclaw-src/package.json /tmp/openclaw-src/pnpm-lock.yaml /tmp/openclaw-src/pnpm-workspace.yaml /tmp/openclaw-src/.npmrc ./
-RUN cp -r /tmp/openclaw-src/ui ./ui
-RUN cp -r /tmp/openclaw-src/patches ./patches
-RUN cp -r /tmp/openclaw-src/scripts ./scripts
-
+# Install deps + build
 RUN pnpm install --frozen-lockfile
-
-RUN cp -r /tmp/openclaw-src/* .
 RUN pnpm build
 ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build
 
-# Clean up source
-RUN rm -rf /tmp/openclaw-src
+# Runtime stage — slim
+FROM node:22-bookworm-slim
 
-ENV NODE_ENV=production
+WORKDIR /app
+
+# Copy built OpenClaw
+COPY --from=builder /build/dist ./dist
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/package.json ./
+COPY --from=builder /build/ui ./ui
 
 # Copy our entrypoint
 COPY entrypoint.sh /opt/entrypoint.sh
