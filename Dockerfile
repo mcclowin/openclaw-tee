@@ -1,31 +1,30 @@
+ARG OPENCLAW_VERSION=v2026.2.13
+
+# --- Stage 1: Build OpenClaw from source (using their own Dockerfile pattern) ---
 FROM node:22-bookworm AS builder
 
-# Install build tools
-RUN apt-get update && apt-get install -y git python3 make g++ && rm -rf /var/lib/apt/lists/*
-RUN npm install -g pnpm@9 bun@1
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+RUN corepack enable
 
-# Clone and build OpenClaw
-ARG OPENCLAW_VERSION=main
-RUN git clone --depth 1 --branch ${OPENCLAW_VERSION} https://github.com/openclaw/openclaw.git /build
-WORKDIR /build
-RUN bun install --frozen-lockfile || bun install
-RUN pnpm install --frozen-lockfile || pnpm install  
+ARG OPENCLAW_VERSION
+RUN git clone --depth 1 --branch ${OPENCLAW_VERSION} https://github.com/openclaw/openclaw.git /app
+WORKDIR /app
+
+RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm build
+ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build || true
 
-# --- Production image ---
+# --- Stage 2: Production image ---
 FROM node:22-bookworm-slim
 
 RUN apt-get update && apt-get install -y gosu openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Copy built OpenClaw
-COPY --from=builder /build /app
-
-# Copy our entrypoint
+COPY --from=builder /app /app
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Create node user dirs
 RUN mkdir -p /home/node/.openclaw && chown -R node:node /home/node/.openclaw
 
 WORKDIR /app
