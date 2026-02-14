@@ -19,9 +19,6 @@ mkdir -p "$AGENT_DIR" "$WORKSPACE" \
 # --- Fix ownership (if running as root, drop to node after) ---
 if [ "$(id -u)" = "0" ]; then
   chown -R node:node "$CONFIG_DIR"
-  EXEC_PREFIX="su-exec node"
-else
-  EXEC_PREFIX=""
 fi
 
 # --- Validate required env vars ---
@@ -112,7 +109,7 @@ echo "==========================="
 
 # --- Start OpenClaw (drop to node user if root) ---
 if [ "$(id -u)" = "0" ]; then
-  exec runuser -u node -- node dist/index.js gateway
+  exec gosu node node dist/index.js gateway
 else
   exec node dist/index.js gateway
 fi
