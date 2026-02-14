@@ -109,7 +109,7 @@ echo "==========================="
 
 # --- Start OpenClaw (drop to node user if root) ---
 if [ "$(id -u)" = "0" ]; then
-  exec gosu node node dist/index.js gateway
+  exec gosu node node openclaw.mjs gateway
 else
-  exec node dist/index.js gateway
+  exec node openclaw.mjs gateway
 fi
