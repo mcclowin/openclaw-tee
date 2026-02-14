@@ -1,38 +1,34 @@
-# Brain&Bot OpenClaw TEE Image
-# Builds official OpenClaw from source + our entrypoint
 FROM node:22-bookworm AS builder
 
-# Install Bun (required for OpenClaw build)
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
-RUN corepack enable
+# Install build tools
+RUN apt-get update && apt-get install -y git python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN npm install -g pnpm@9 bun@1
 
+# Clone and build OpenClaw
+ARG OPENCLAW_VERSION=main
+RUN git clone --depth 1 --branch ${OPENCLAW_VERSION} https://github.com/anthropics/claude-code.git /build
 WORKDIR /build
-
-# Clone OpenClaw source
-RUN git clone --depth 1 https://github.com/openclaw/openclaw.git .
-
-# Install deps + build
-RUN pnpm install --frozen-lockfile
+RUN bun install --frozen-lockfile || bun install
+RUN pnpm install --frozen-lockfile || pnpm install  
 RUN pnpm build
-ENV OPENCLAW_PREFER_PNPM=1
-RUN pnpm ui:build
+RUN pnpm ui:build || true
 
-# Runtime stage — slim
+# --- Production image ---
 FROM node:22-bookworm-slim
 
-WORKDIR /app
+RUN apt-get update && apt-get install -y su-exec openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Copy built OpenClaw
-COPY --from=builder /build/dist ./dist
-COPY --from=builder /build/node_modules ./node_modules
-COPY --from=builder /build/package.json ./
-COPY --from=builder /build/ui ./ui
+COPY --from=builder /build /app
 
 # Copy our entrypoint
-COPY entrypoint.sh /opt/entrypoint.sh
-RUN chmod +x /opt/entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
+# Create node user dirs
+RUN mkdir -p /home/node/.openclaw && chown -R node:node /home/node/.openclaw
+
+WORKDIR /app
 EXPOSE 3000
 
-ENTRYPOINT ["/opt/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
