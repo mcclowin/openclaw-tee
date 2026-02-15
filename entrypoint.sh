@@ -1,17 +1,15 @@
 #!/bin/sh
 set -e
 
-# === OpenClaw TEE Entrypoint ===
-# Generates config from env vars, then starts OpenClaw gateway.
+echo "=== OpenClaw TEE Entrypoint ==="
+echo "Running as: $(id)"
+echo "HOME: $HOME"
 
-HOME_DIR="/home/node"
-CONFIG_DIR="$HOME_DIR/.openclaw"
+CONFIG_DIR="$HOME/.openclaw"
 AGENT_DIR="$CONFIG_DIR/agents/main/agent"
 WORKSPACE="$CONFIG_DIR/workspace"
 
-echo "=== OpenClaw TEE Entrypoint ==="
-
-# --- Create all dirs OpenClaw expects ---
+# --- Create all dirs ---
 mkdir -p "$AGENT_DIR" "$WORKSPACE" \
   "$CONFIG_DIR/agents/main/sessions" \
   "$CONFIG_DIR/telegram" \
@@ -20,7 +18,7 @@ mkdir -p "$AGENT_DIR" "$WORKSPACE" \
   "$CONFIG_DIR/sandboxes" \
   "$CONFIG_DIR/credentials"
 
-# --- Validate required env vars ---
+# --- Validate ---
 missing=""
 [ -z "$ANTHROPIC_API_KEY" ] && missing="$missing ANTHROPIC_API_KEY"
 [ -z "$TELEGRAM_BOT_TOKEN" ] && missing="$missing TELEGRAM_BOT_TOKEN"
@@ -31,7 +29,6 @@ if [ -n "$missing" ]; then
   exit 1
 fi
 
-# Auto-generate gateway token if not provided
 GATEWAY_TOKEN="${GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | od -A n -t x1 | tr -d ' \n')}"
 
 # --- Generate openclaw.json ---
@@ -49,7 +46,7 @@ cat > "$CONFIG_DIR/openclaw.json" << JSONEOF
   "agents": {
     "defaults": {
       "model": {
-        "primary": "${PRIMARY_MODEL:-claude-sonnet-4-20250514}"
+        "primary": "anthropic/claude-sonnet-4-20250514"
       },
       "workspace": "$WORKSPACE"
     }
@@ -86,21 +83,17 @@ cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
 }
 JSONEOF
 
-# --- Seed workspace files ---
+# --- Seed SOUL.md ---
 if [ -n "$SOUL_MD" ]; then
   echo "$SOUL_MD" > "$WORKSPACE/SOUL.md"
-  echo "Seeded SOUL.md from env"
+  echo "Seeded SOUL.md"
 fi
 
-# --- Fix ownership ---
-chown -R node:node "$CONFIG_DIR"
-
 echo "Gateway token: $GATEWAY_TOKEN"
-echo "Model: ${PRIMARY_MODEL:-claude-sonnet-4-20250514}"
 echo "Telegram owner: $TELEGRAM_OWNER_ID"
-echo "Config written to: $CONFIG_DIR/openclaw.json"
-echo "=== Starting OpenClaw Gateway ==="
+echo "Config dir: $CONFIG_DIR"
+ls -la "$CONFIG_DIR/openclaw.json"
+echo "=== Starting Gateway ==="
 
-# --- Start as node user ---
 cd /app
-exec gosu node node openclaw.mjs gateway
+exec node openclaw.mjs gateway

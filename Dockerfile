@@ -19,7 +19,7 @@ RUN pnpm ui:build || true
 # --- Stage 2: Production image ---
 FROM node:22-bookworm-slim
 
-RUN apt-get update && apt-get install -y gosu openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app /app
 # Verify build output exists
@@ -27,7 +27,7 @@ RUN ls -la /app/openclaw.mjs /app/dist/ && echo "Build artifacts present"
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-RUN mkdir -p /home/node/.openclaw && chown -R node:node /home/node
+# Run as root in TEE (hardware enclave IS the security boundary)
 
 WORKDIR /app
 EXPOSE 3000
