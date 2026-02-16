@@ -34,6 +34,20 @@ GATEWAY_TOKEN="${GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | od -A n -t x1 | tr -
 # --- Generate openclaw.json ---
 cat > "$CONFIG_DIR/openclaw.json" << JSONEOF
 {
+  "wizard": {
+    "lastRunAt": "2026-01-01T00:00:00.000Z",
+    "lastRunVersion": "2026.2.13",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "auth": {
+    "profiles": {
+      "anthropic:default": {
+        "provider": "anthropic",
+        "mode": "token"
+      }
+    }
+  },
   "gateway": {
     "port": 3000,
     "mode": "local",
@@ -57,13 +71,6 @@ cat > "$CONFIG_DIR/openclaw.json" << JSONEOF
       "botToken": "$TELEGRAM_BOT_TOKEN",
       "allowFrom": ["$TELEGRAM_OWNER_ID"],
       "dmPolicy": "allowlist"
-    }
-  },
-  "plugins": {
-    "entries": {
-      "telegram": {
-        "enabled": true
-      }
     }
   }
 }
@@ -92,8 +99,8 @@ fi
 echo "Gateway token: $GATEWAY_TOKEN"
 echo "Telegram owner: $TELEGRAM_OWNER_ID"
 echo "Config dir: $CONFIG_DIR"
-ls -la "$CONFIG_DIR/openclaw.json"
+cat "$CONFIG_DIR/openclaw.json"
 echo "=== Starting Gateway ==="
 
 # openclaw installed globally via npm
-exec openclaw gateway
+exec openclaw gateway 2>&1
