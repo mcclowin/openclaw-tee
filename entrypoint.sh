@@ -95,5 +95,5 @@ echo "Config dir: $CONFIG_DIR"
 ls -la "$CONFIG_DIR/openclaw.json"
 echo "=== Starting Gateway ==="
 
-cd /app
-exec node openclaw.mjs gateway
+# openclaw installed globally via npm
+exec openclaw gateway
