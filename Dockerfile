@@ -3,8 +3,6 @@ ARG OPENCLAW_VERSION=v2026.2.13
 # --- Stage 1: Build OpenClaw from source ---
 FROM node:22-bookworm AS builder
 
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
 RUN corepack enable
 
 ARG OPENCLAW_VERSION
@@ -13,21 +11,28 @@ WORKDIR /app
 
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm build
-ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build || true
 
+# Prune dev dependencies to shrink node_modules
+RUN pnpm prune --prod || true
+
+# Remove unnecessary files
+RUN rm -rf .git .github docs tests test src/test* \
+    *.md LICENSE .eslintrc* .prettierrc* tsconfig* \
+    node_modules/.cache node_modules/.package-lock.json
+
 # --- Stage 2: Production image ---
-FROM node:22-bookworm-slim
+FROM node:22-alpine
 
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl ca-certificates
 
-COPY --from=builder /app /app
-# Verify build output exists
-RUN ls -la /app/openclaw.mjs /app/dist/ && echo "Build artifacts present"
+COPY --from=builder /app/openclaw.mjs /app/openclaw.mjs
+COPY --from=builder /app/dist /app/dist
+COPY --from=builder /app/node_modules /app/node_modules
+COPY --from=builder /app/package.json /app/package.json
+COPY --from=builder /app/web /app/web
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-
-# Run as root in TEE (hardware enclave IS the security boundary)
 
 WORKDIR /app
 EXPOSE 3000
