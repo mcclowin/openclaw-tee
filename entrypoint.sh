@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "=== OpenClaw TEE Entrypoint ==="
+echo "=== OpenClaw Entrypoint ==="
 echo "Running as: $(id)"
 echo "HOME: $HOME"
 
