@@ -5,6 +5,7 @@ RUN apk add --no-cache openssl ca-certificates git python3 make g++ cmake
 
 # Install OpenClaw from npm with full postinstall scripts
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=true
+# Force rebuild: 2026-02-22 — pull latest OpenClaw version
 RUN npm install -g openclaw@latest
 
 # Clean up build tools to reduce image size
