@@ -100,6 +100,12 @@ echo "Gateway token: $GATEWAY_TOKEN"
 echo "Telegram owner: $TELEGRAM_OWNER_ID"
 echo "Config dir: $CONFIG_DIR"
 cat "$CONFIG_DIR/openclaw.json"
+echo "=== OpenClaw Version ==="
+openclaw --version 2>&1 || echo "version check failed"
+
+echo "=== Running Doctor Fix ==="
+openclaw doctor --fix 2>&1 || echo "doctor fix failed (non-fatal)"
+
 echo "=== Starting Gateway ==="
 
 # openclaw installed globally via npm
