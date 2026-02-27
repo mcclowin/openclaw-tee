@@ -32,7 +32,57 @@ fi
 GATEWAY_TOKEN="${GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | od -A n -t x1 | tr -d ' \n')}"
 
 # --- Generate openclaw.json ---
-cat > "$CONFIG_DIR/openclaw.json" << JSONEOF
+if [ -n "$OPENCLAW_CONFIG" ]; then
+  echo "Using custom openclaw.json from OPENCLAW_CONFIG env var"
+  echo "$OPENCLAW_CONFIG" > "$CONFIG_DIR/openclaw.json"
+  
+  # Inject gateway settings (port, auth) into custom config so the TEE is reachable
+  # Uses python3 if available, otherwise node
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+import json, sys
+with open('$CONFIG_DIR/openclaw.json') as f:
+    cfg = json.load(f)
+cfg.setdefault('gateway', {})
+cfg['gateway']['port'] = 3000
+cfg['gateway']['mode'] = 'local'
+cfg['gateway']['bind'] = 'lan'
+cfg['gateway'].setdefault('auth', {})
+cfg['gateway']['auth']['mode'] = 'token'
+cfg['gateway']['auth']['token'] = '$GATEWAY_TOKEN'
+cfg.setdefault('wizard', {})
+cfg['wizard']['lastRunAt'] = '2026-01-01T00:00:00.000Z'
+cfg['wizard']['lastRunVersion'] = '2026.2.13'
+cfg['wizard']['lastRunCommand'] = 'onboard'
+cfg['wizard']['lastRunMode'] = 'local'
+cfg.setdefault('agents', {}).setdefault('defaults', {})
+cfg['agents']['defaults']['workspace'] = '$WORKSPACE'
+# Inject Telegram token + owner into channels.telegram if present in env
+if '$TELEGRAM_BOT_TOKEN':
+    cfg.setdefault('channels', {}).setdefault('telegram', {})
+    cfg['channels']['telegram']['enabled'] = True
+    cfg['channels']['telegram']['botToken'] = '$TELEGRAM_BOT_TOKEN'
+    if '$TELEGRAM_OWNER_ID':
+        cfg['channels']['telegram']['allowFrom'] = ['$TELEGRAM_OWNER_ID']
+        cfg['channels']['telegram']['dmPolicy'] = 'allowlist'
+with open('$CONFIG_DIR/openclaw.json', 'w') as f:
+    json.dump(cfg, f, indent=2)
+" 2>&1 || echo "Warning: failed to merge gateway into custom config"
+  else
+    node -e "
+const fs = require('fs');
+const cfg = JSON.parse(fs.readFileSync('$CONFIG_DIR/openclaw.json','utf8'));
+cfg.gateway = {...(cfg.gateway||{}), port:3000, mode:'local', bind:'lan', auth:{mode:'token',token:'$GATEWAY_TOKEN'}};
+cfg.wizard = {lastRunAt:'2026-01-01T00:00:00.000Z',lastRunVersion:'2026.2.13',lastRunCommand:'onboard',lastRunMode:'local'};
+cfg.agents = cfg.agents||{}; cfg.agents.defaults = cfg.agents.defaults||{}; cfg.agents.defaults.workspace='$WORKSPACE';
+if('$TELEGRAM_BOT_TOKEN'){cfg.channels=cfg.channels||{};cfg.channels.telegram={...(cfg.channels.telegram||{}),enabled:true,botToken:'$TELEGRAM_BOT_TOKEN'};}
+if('$TELEGRAM_OWNER_ID'){cfg.channels.telegram.allowFrom=['$TELEGRAM_OWNER_ID'];cfg.channels.telegram.dmPolicy='allowlist';}
+fs.writeFileSync('$CONFIG_DIR/openclaw.json',JSON.stringify(cfg,null,2));
+" 2>&1 || echo "Warning: failed to merge gateway into custom config"
+  fi
+else
+  echo "Generating default openclaw.json"
+  cat > "$CONFIG_DIR/openclaw.json" << JSONEOF
 {
   "wizard": {
     "lastRunAt": "2026-01-01T00:00:00.000Z",
@@ -75,6 +125,7 @@ cat > "$CONFIG_DIR/openclaw.json" << JSONEOF
   }
 }
 JSONEOF
+fi
 
 # --- Generate auth-profiles.json ---
 cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
@@ -90,10 +141,30 @@ cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
 }
 JSONEOF
 
-# --- Seed SOUL.md ---
+# --- Seed workspace files ---
 if [ -n "$SOUL_MD" ]; then
   echo "$SOUL_MD" > "$WORKSPACE/SOUL.md"
   echo "Seeded SOUL.md"
+fi
+if [ -n "$AGENTS_MD" ]; then
+  echo "$AGENTS_MD" > "$WORKSPACE/AGENTS.md"
+  echo "Seeded AGENTS.md"
+fi
+if [ -n "$TOOLS_MD" ]; then
+  echo "$TOOLS_MD" > "$WORKSPACE/TOOLS.md"
+  echo "Seeded TOOLS.md"
+fi
+if [ -n "$USER_MD" ]; then
+  echo "$USER_MD" > "$WORKSPACE/USER.md"
+  echo "Seeded USER.md"
+fi
+if [ -n "$HEARTBEAT_MD" ]; then
+  echo "$HEARTBEAT_MD" > "$WORKSPACE/HEARTBEAT.md"
+  echo "Seeded HEARTBEAT.md"
+fi
+if [ -n "$MEMORY_MD" ]; then
+  echo "$MEMORY_MD" > "$WORKSPACE/MEMORY.md"
+  echo "Seeded MEMORY.md"
 fi
 
 echo "Gateway token: $GATEWAY_TOKEN"
