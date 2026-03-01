@@ -67,6 +67,7 @@ cfg['gateway']['bind'] = 'lan'
 cfg['gateway'].setdefault('auth', {})
 cfg['gateway']['auth']['mode'] = 'token'
 cfg['gateway']['auth']['token'] = '$GATEWAY_TOKEN'
+cfg['gateway']['controlUi'] = {'dangerouslyAllowHostHeaderOriginFallback': True}
 cfg.setdefault('wizard', {})
 cfg['wizard']['lastRunAt'] = '2026-01-01T00:00:00.000Z'
 cfg['wizard']['lastRunVersion'] = '2026.2.13'
@@ -89,7 +90,7 @@ with open('$CONFIG_DIR/openclaw.json', 'w') as f:
     node -e "
 const fs = require('fs');
 const cfg = JSON.parse(fs.readFileSync('$CONFIG_DIR/openclaw.json','utf8'));
-cfg.gateway = {...(cfg.gateway||{}), port:3000, mode:'local', bind:'lan', auth:{mode:'token',token:'$GATEWAY_TOKEN'}};
+cfg.gateway = {...(cfg.gateway||{}), port:3000, mode:'local', bind:'lan', auth:{mode:'token',token:'$GATEWAY_TOKEN'}, controlUi:{dangerouslyAllowHostHeaderOriginFallback:true}};
 cfg.wizard = {lastRunAt:'2026-01-01T00:00:00.000Z',lastRunVersion:'2026.2.13',lastRunCommand:'onboard',lastRunMode:'local'};
 cfg.agents = cfg.agents||{}; cfg.agents.defaults = cfg.agents.defaults||{}; cfg.agents.defaults.workspace='$WORKSPACE';
 if('$TELEGRAM_BOT_TOKEN'){cfg.channels=cfg.channels||{};cfg.channels.telegram={...(cfg.channels.telegram||{}),enabled:true,botToken:'$TELEGRAM_BOT_TOKEN'};}
@@ -122,6 +123,9 @@ else
     "auth": {
       "mode": "token",
       "token": "$GATEWAY_TOKEN"
+    },
+    "controlUi": {
+      "dangerouslyAllowHostHeaderOriginFallback": true
     }
   },
   "agents": {
