@@ -19,14 +19,23 @@ mkdir -p "$AGENT_DIR" "$WORKSPACE" \
   "$CONFIG_DIR/credentials"
 
 # --- Validate ---
-missing=""
-[ -z "$ANTHROPIC_API_KEY" ] && missing="$missing ANTHROPIC_API_KEY"
-[ -z "$TELEGRAM_BOT_TOKEN" ] && missing="$missing TELEGRAM_BOT_TOKEN"
-[ -z "$TELEGRAM_OWNER_ID" ] && missing="$missing TELEGRAM_OWNER_ID"
+if [ -n "$OPENCLAW_CONFIG" ]; then
+  # Advanced mode: user provides full config, only need API key for auth-profiles
+  echo "Advanced mode: using OPENCLAW_CONFIG"
+  if [ -z "$ANTHROPIC_API_KEY" ]; then
+    echo "WARNING: No ANTHROPIC_API_KEY set. Make sure your auth is configured in OPENCLAW_CONFIG or custom env."
+  fi
+else
+  # Easy mode: individual env vars required
+  missing=""
+  [ -z "$ANTHROPIC_API_KEY" ] && missing="$missing ANTHROPIC_API_KEY"
+  [ -z "$TELEGRAM_BOT_TOKEN" ] && missing="$missing TELEGRAM_BOT_TOKEN"
+  [ -z "$TELEGRAM_OWNER_ID" ] && missing="$missing TELEGRAM_OWNER_ID"
 
-if [ -n "$missing" ]; then
-  echo "ERROR: Missing required env vars:$missing"
-  exit 1
+  if [ -n "$missing" ]; then
+    echo "ERROR: Missing required env vars:$missing"
+    exit 1
+  fi
 fi
 
 GATEWAY_TOKEN="${GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | od -A n -t x1 | tr -d ' \n')}"
@@ -128,7 +137,8 @@ JSONEOF
 fi
 
 # --- Generate auth-profiles.json ---
-cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
+if [ -n "$ANTHROPIC_API_KEY" ]; then
+  cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
 {
   "version": 1,
   "profiles": {
@@ -140,6 +150,10 @@ cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
   }
 }
 JSONEOF
+  echo "Generated auth-profiles.json"
+else
+  echo "Skipping auth-profiles.json (no ANTHROPIC_API_KEY, must be in OPENCLAW_CONFIG)"
+fi
 
 # --- Seed workspace files ---
 if [ -n "$SOUL_MD" ]; then
