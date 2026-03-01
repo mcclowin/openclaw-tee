@@ -145,6 +145,7 @@ JSONEOF
 fi
 
 # --- Generate auth-profiles.json ---
+# Check for API key in env (works for both easy and advanced mode)
 if [ -n "$ANTHROPIC_API_KEY" ]; then
   cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
 {
@@ -158,9 +159,25 @@ if [ -n "$ANTHROPIC_API_KEY" ]; then
   }
 }
 JSONEOF
-  echo "Generated auth-profiles.json"
+  echo "Generated auth-profiles.json with ANTHROPIC_API_KEY"
+elif [ -n "$OPENAI_API_KEY" ]; then
+  cat > "$AGENT_DIR/auth-profiles.json" << JSONEOF
+{
+  "version": 1,
+  "profiles": {
+    "openai:default": {
+      "type": "token",
+      "provider": "openai",
+      "token": "$OPENAI_API_KEY"
+    }
+  }
+}
+JSONEOF
+  echo "Generated auth-profiles.json with OPENAI_API_KEY"
 else
-  echo "Skipping auth-profiles.json (no ANTHROPIC_API_KEY, must be in OPENCLAW_CONFIG)"
+  echo "ERROR: No API key found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY as a custom env var."
+  echo "In advanced mode, the API key must be passed as a separate environment variable (not inside openclaw.json)."
+  exit 1
 fi
 
 # --- Seed workspace files ---
