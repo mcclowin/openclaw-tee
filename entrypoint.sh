@@ -43,7 +43,15 @@ GATEWAY_TOKEN="${GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | od -A n -t x1 | tr -
 # --- Generate openclaw.json ---
 if [ -n "$OPENCLAW_CONFIG" ]; then
   echo "Using custom openclaw.json from OPENCLAW_CONFIG env var"
-  echo "$OPENCLAW_CONFIG" > "$CONFIG_DIR/openclaw.json"
+  # Handle escaped newlines from env var (Phala encrypted_env escapes \n)
+  printf '%b' "$OPENCLAW_CONFIG" > "$CONFIG_DIR/openclaw.json"
+  # Validate JSON before proceeding
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c "import json; json.load(open('$CONFIG_DIR/openclaw.json'))" 2>/dev/null || {
+      echo "WARN: openclaw.json not valid JSON, attempting to fix escaped newlines..."
+      echo "$OPENCLAW_CONFIG" | sed 's/\\n/\n/g; s/\\t/\t/g' > "$CONFIG_DIR/openclaw.json"
+    }
+  fi
   
   # Inject gateway settings (port, auth) into custom config so the TEE is reachable
   # Uses python3 if available, otherwise node
